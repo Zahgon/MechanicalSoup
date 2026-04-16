@@ -64,21 +64,13 @@ class Form:
         value ``username``, and the input element named "password" and
         give it the value ``password``.
         """
-
-        for (name, value) in data.items():
-            i = self.form.find("input", {"name": name})
-            if not i:
-                raise InvalidFormMethod("No input field named " + name)
-            self._assert_valid_file_upload(i, value)
-            i["value"] = value
+        pass
 
     def uncheck_all(self, name):
         """Remove the *checked*-attribute of all input elements with
         a *name*-attribute given by ``name``.
         """
-        for option in self.form.find_all("input", {"name": name}):
-            if "checked" in option.attrs:
-                del option.attrs["checked"]
+        pass
 
     def check(self, data):
         """For backwards compatibility, this method handles checkboxes
@@ -86,18 +78,7 @@ class Form:
         checkboxes unless explicitly specified by ``data``, in contrast
         with the default behavior of :func:`~Form.set_checkbox`.
         """
-        for (name, value) in data.items():
-            try:
-                self.set_checkbox({name: value}, uncheck_other_boxes=False)
-                continue
-            except InvalidFormMethod:
-                pass
-            try:
-                self.set_radio({name: value})
-                continue
-            except InvalidFormMethod:
-                pass
-            raise LinkNotFoundError("No input checkbox/radio named " + name)
+        pass
 
     def set_checkbox(self, data, uncheck_other_boxes=True):
         """Set the *checked*-attribute of input elements of type "checkbox"
@@ -113,41 +94,7 @@ class Form:
             Consider setting to False if some boxes are checked by default when
             the HTML is served.
         """
-        for (name, value) in data.items():
-            # Case-insensitive search for type=checkbox
-            selector = 'input[type="checkbox" i][name="{}"]'.format(name)
-            checkboxes = self.form.select(selector)
-            if not checkboxes:
-                raise InvalidFormMethod("No input checkbox named " + name)
-
-            # uncheck if requested
-            if uncheck_other_boxes:
-                self.uncheck_all(name)
-
-            # Wrap individual values (e.g. int, str) in a 1-element tuple.
-            if not isinstance(value, list) and not isinstance(value, tuple):
-                value = (value,)
-
-            # Check or uncheck one or more boxes
-            for choice in value:
-                choice_str = str(choice)  # Allow for example literal numbers
-                for checkbox in checkboxes:
-                    if checkbox.attrs.get("value", "on") == choice_str:
-                        checkbox["checked"] = ""
-                        break
-                    # Allow specifying True or False to check/uncheck
-                    elif choice is True:
-                        checkbox["checked"] = ""
-                        break
-                    elif choice is False:
-                        if "checked" in checkbox.attrs:
-                            del checkbox.attrs["checked"]
-                        break
-                else:
-                    raise LinkNotFoundError(
-                        "No input checkbox named %s with choice %s" %
-                        (name, choice)
-                    )
+        pass
 
     def set_radio(self, data):
         """Set the *checked*-attribute of input elements of type "radio"
@@ -158,25 +105,7 @@ class Form:
             check the radio button whose *value*-attribute is ``value``.
             Only one radio button in the family can be checked.
         """
-        for (name, value) in data.items():
-            # Case-insensitive search for type=radio
-            selector = 'input[type="radio" i][name="{}"]'.format(name)
-            radios = self.form.select(selector)
-            if not radios:
-                raise InvalidFormMethod("No input radio named " + name)
-
-            # only one radio button can be checked
-            self.uncheck_all(name)
-
-            # Check the appropriate radio button (value cannot be a list/tuple)
-            for radio in radios:
-                if radio.attrs.get("value", "on") == str(value):
-                    radio["checked"] = ""
-                    break
-            else:
-                raise LinkNotFoundError(
-                    f"No input radio named {name} with choice {value}"
-                )
+        pass
 
     def set_textarea(self, data):
         """Set the *string*-attribute of the first textarea element
@@ -186,11 +115,7 @@ class Form:
             The textarea whose *name*-attribute is ``name`` will have
             its *string*-attribute set to ``value``.
         """
-        for (name, value) in data.items():
-            t = self.form.find("textarea", {"name": name})
-            if not t:
-                raise InvalidFormMethod("No textarea named " + name)
-            t.string = value
+        pass
 
     def set_select(self, data):
         """Set the *selected*-attribute of the first option element
@@ -204,36 +129,7 @@ class Form:
             ``value``. If the select element's *multiple*-attribute is set,
             then ``value`` can be a list or tuple to select multiple options.
         """
-        for (name, value) in data.items():
-            select = self.form.find("select", {"name": name})
-            if not select:
-                raise InvalidFormMethod("No select named " + name)
-
-            # Deselect all options first
-            for option in select.find_all("option"):
-                if "selected" in option.attrs:
-                    del option.attrs["selected"]
-
-            # Wrap individual values in a 1-element tuple.
-            # If value is a list/tuple, select must be a <select multiple>.
-            if not isinstance(value, list) and not isinstance(value, tuple):
-                value = (value,)
-            elif "multiple" not in select.attrs:
-                raise LinkNotFoundError("Cannot select multiple options!")
-
-            for choice in value:
-                option = select.find("option", {"value": choice})
-
-                # try to find with text instead of value
-                if not option:
-                    option = select.find("option", string=choice)
-
-                if not option:
-                    raise LinkNotFoundError(
-                        f'Option {choice} not found for select {name}'
-                    )
-
-                option.attrs["selected"] = "selected"
+        pass
 
     def __setitem__(self, name, value):
         """Forwards arguments to :func:`~Form.set`. For example,
@@ -271,40 +167,14 @@ class Form:
             form.set("tagname", open(path_to_local_file, "rb"))
 
         """
-        for func in ("checkbox", "radio", "input", "textarea", "select"):
-            try:
-                getattr(self, "set_" + func)({name: value})
-                return
-            except InvalidFormMethod:
-                pass
-        if force:
-            self.new_control('text', name, value=value)
-            return
-        raise LinkNotFoundError("No valid element named " + name)
+        pass
 
     def new_control(self, type, name, value, **kwargs):
         """Add a new input element to the form.
 
         The arguments set the attributes of the new element.
         """
-        # Remove existing input-like elements with the same name
-        for tag in ('input', 'textarea', 'select'):
-            for old in self.form.find_all(tag, {'name': name}):
-                old.decompose()
-        # We don't have access to the original soup object (just the
-        # Tag), so we instantiate a new BeautifulSoup() to call
-        # new_tag(). We're only building the soup object, not parsing
-        # anything, so the parser doesn't matter. Specify the one
-        # included in Python to avoid having dependency issue.
-        control = BeautifulSoup("", "html.parser").new_tag('input')
-        control['type'] = type
-        control['name'] = name
-        control['value'] = value
-        for k, v in kwargs.items():
-            control[k] = v
-        self._assert_valid_file_upload(control, value)
-        self.form.append(control)
-        return control
+        pass
 
     def choose_submit(self, submit):
         """Selects the input (or button) element to use for form submission.
@@ -330,73 +200,15 @@ class Form:
             form.choose_submit('form_name_attr')
             browser.submit_selected()
         """
-        # Since choose_submit is destructive, it doesn't make sense to call
-        # this method twice unless no submit is specified.
-        if self._submit_chosen:
-            if submit is None:
-                return
-            else:
-                raise Exception('Submit already chosen. Cannot change submit!')
-
-        # All buttons NOT of type (button,reset) are valid submits
-        # Case-insensitive search for type=submit
-        inps = [i for i in self.form.select('input[type="submit" i], button')
-                if i.get("type", "").lower() not in ('button', 'reset')]
-
-        # If no submit specified, choose the first one
-        if submit is None and inps:
-            submit = inps[0]
-
-        found = False
-        for inp in inps:
-            if (inp.has_attr('name') and inp['name'] == submit):
-                if found:
-                    raise LinkNotFoundError(
-                        f"Multiple submit elements match: {submit}"
-                    )
-                found = True
-            elif inp == submit:
-                if found:
-                    # Ignore submit element since it is an exact
-                    # duplicate of the one we're looking at.
-                    inp.decompose()
-                found = True
-            else:
-                # Delete any non-matching element's name so that it will be
-                # omitted from the submitted form data.
-                inp.decompose()
-
-        if not found and submit is not None and submit is not False:
-            raise LinkNotFoundError(
-                f"Specified submit element not found: {submit}"
-            )
-        self._submit_chosen = True
+        pass
 
     def print_summary(self):
         """Print a summary of the form.
 
         May help finding which fields need to be filled-in.
         """
-        for input in self.form.find_all(
-                ("input", "textarea", "select", "button")):
-            input_copy = copy.copy(input)
-            # Text between the opening tag and the closing tag often
-            # contains a lot of spaces that we don't want here.
-            for subtag in input_copy.find_all() + [input_copy]:
-                if subtag.string:
-                    subtag.string = subtag.string.strip()
-            print(input_copy)
+        pass
 
     def _assert_valid_file_upload(self, tag, value):
         """Raise an exception if a multipart file input is not an open file."""
-        if (
-            is_multipart_file_upload(self.form, tag) and
-            not isinstance(value, io.IOBase)
-        ):
-            raise ValueError(
-                "From v1.3.0 onwards, you must pass an open file object "
-                'directly, e.g. `form["name"] = open("/path/to/file", "rb")`. '
-                "This change is to remediate a security vulnerability where "
-                "a malicious web server could read arbitrary files from the "
-                "client (CVE-2023-34457)."
-            )
+        pass

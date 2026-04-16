@@ -100,21 +100,15 @@ class Browser:
           <https://docs.python.org/3/library/http.cookiejar.html#http.cookiejar.CookieJar>`__
           compatible object.
         """
-        self.session.cookies = cookiejar
+        pass
 
     def get_cookiejar(self):
         """Gets the cookiejar from the requests session."""
-        return self.session.cookies
+        pass
 
     def set_user_agent(self, user_agent):
         """Replaces the current user agent in the requests session headers."""
-        # set a default user_agent if not specified
-        if user_agent is None:
-            requests_ua = requests.utils.default_user_agent()
-            user_agent = f'{requests_ua} ({__title__}/{__version__})'
-
-        # the requests module uses a case-insensitive dict for session headers
-        self.session.headers['User-agent'] = user_agent
+        pass
 
     def request(self, *args, **kwargs):
         """Straightforward wrapper around `requests.Session.request
@@ -129,9 +123,7 @@ class Browser:
         need an HTTP verb that MechanicalSoup doesn't manage (e.g. MKCOL) for
         example.
         """
-        response = self.session.request(*args, **kwargs)
-        Browser.add_soup(response, self.soup_config)
-        return response
+        pass
 
     def get(self, *args, **kwargs):
         """Straightforward wrapper around `requests.Session.get
@@ -155,9 +147,7 @@ class Browser:
             <http://docs.python-requests.org/en/master/api/#requests.Response>`__
             object with a *soup*-attribute added by :func:`add_soup`.
         """
-        response = self.session.post(*args, **kwargs)
-        Browser.add_soup(response, self.soup_config)
-        return response
+        pass
 
     def put(self, *args, **kwargs):
         """Straightforward wrapper around `requests.Session.put
@@ -167,140 +157,23 @@ class Browser:
             <http://docs.python-requests.org/en/master/api/#requests.Response>`__
             object with a *soup*-attribute added by :func:`add_soup`.
         """
-        response = self.session.put(*args, **kwargs)
-        Browser.add_soup(response, self.soup_config)
-        return response
+        pass
 
     @staticmethod
     def _get_request_kwargs(method, url, **kwargs):
         """This method exists to raise a TypeError when a method or url is
         specified in the kwargs.
         """
-        request_kwargs = {"method": method, "url": url}
-        request_kwargs.update(kwargs)
-        return request_kwargs
+        pass
 
     @classmethod
     def get_request_kwargs(cls, form, url=None, **kwargs):
         """Extract input data from the form."""
-        method = str(form.get("method", "get"))
-        action = form.get("action")
-
-        # If the form has a submit button, use its form action
-        # https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/button#formaction.
-        button_submit_element = form.find("button")
-        if button_submit_element:
-            action = button_submit_element.get("formaction", action)
-
-        url = urllib.parse.urljoin(url, action)
-        if url is None:  # This happens when both `action` and `url` are None.
-            raise ValueError('no URL to submit to')
-
-        # read https://www.w3.org/TR/html52/sec-forms.html
-        if method.lower() == "get":
-            data = kwargs.pop("params", dict())
-        else:
-            data = kwargs.pop("data", dict())
-        files = kwargs.pop("files", dict())
-
-        # Use a list of 2-tuples to better reflect the behavior of browser QSL.
-        # Requests also retains order when encoding form data in 2-tuple lists.
-        data = [(k, v) for k, v in data.items()]
-
-        multipart = form.get("enctype", "") == "multipart/form-data"
-
-        # Process form tags in the order that they appear on the page,
-        # skipping those tags that do not have a name-attribute.
-        selector = ",".join(f"{tag}[name]" for tag in
-                            ("input", "button", "textarea", "select"))
-        for tag in form.select(selector):
-            name = tag.get("name")  # name-attribute of tag
-
-            # Skip disabled elements, since they should not be submitted.
-            if tag.has_attr('disabled'):
-                continue
-
-            if tag.name == "input":
-                if tag.get("type", "").lower() in ("radio", "checkbox"):
-                    if "checked" not in tag.attrs:
-                        continue
-                    value = tag.get("value", "on")
-                else:
-                    # browsers use empty string for inputs with missing values
-                    value = tag.get("value", "")
-
-                # If the enctype is not multipart, the filename is put in
-                # the form as a text input and the file is not sent.
-                if is_multipart_file_upload(form, tag):
-                    if isinstance(value, io.IOBase):
-                        content = value
-                        filename = os.path.basename(getattr(value, "name", ""))
-                    else:
-                        content = ""
-                        filename = os.path.basename(value)
-                    # If content is the empty string, we still pass it
-                    # for consistency with browsers (see
-                    # https://github.com/MechanicalSoup/MechanicalSoup/issues/250).
-                    files[name] = (filename, content)
-                else:
-                    if isinstance(value, io.IOBase):
-                        value = os.path.basename(getattr(value, "name", ""))
-                    data.append((name, value))
-
-            elif tag.name == "button":
-                if tag.get("type", "").lower() in ("button", "reset"):
-                    continue
-                else:
-                    data.append((name, tag.get("value", "")))
-
-            elif tag.name == "textarea":
-                data.append((name, tag.text))
-
-            elif tag.name == "select":
-                # If the value attribute is not specified, the content will
-                # be passed as a value instead.
-                options = tag.select("option")
-                selected_values = [i.get("value", i.text) for i in options
-                                   if "selected" in i.attrs]
-                if "multiple" in tag.attrs:
-                    for value in selected_values:
-                        data.append((name, value))
-                elif selected_values:
-                    # A standard select element only allows one option to be
-                    # selected, but browsers pick last if somehow multiple.
-                    data.append((name, selected_values[-1]))
-                elif options:
-                    # Selects the first option if none are selected
-                    first_value = options[0].get("value", options[0].text)
-                    data.append((name, first_value))
-
-        if method.lower() == "get":
-            kwargs["params"] = data
-        else:
-            kwargs["data"] = data
-
-        # The following part of the function is here to respect the
-        # enctype specified by the form, i.e. force sending multipart
-        # content. Since Requests doesn't have yet a feature to choose
-        # enctype, we have to use tricks to make it behave as we want
-        # This code will be updated if Requests implements it.
-        if multipart and not files:
-            # Requests will switch to "multipart/form-data" only if
-            # files pass the `if files:` test, so in this case we use
-            # a modified dict that passes the if test even if empty.
-            class DictThatReturnsTrue(dict):
-                def __bool__(self):
-                    return True
-                __nonzero__ = __bool__
-
-            files = DictThatReturnsTrue()
-
-        return cls._get_request_kwargs(method, url, files=files, **kwargs)
+        pass
 
     def _request(self, form, url=None, **kwargs):
         """Extract input data from the form to pass to a Requests session."""
-        request_kwargs = Browser.get_request_kwargs(form, url, **kwargs)
-        return self.session.request(**request_kwargs)
+        pass
 
     def submit(self, form, url=None, **kwargs):
         """Prepares and sends a form request.
@@ -321,27 +194,18 @@ class Browser:
             <http://docs.python-requests.org/en/master/api/#requests.Response>`__
             object with a *soup*-attribute added by :func:`add_soup`.
         """
-        if isinstance(form, Form):
-            form = form.form
-        response = self._request(form, url, **kwargs)
-        Browser.add_soup(response, self.soup_config)
-        return response
+        pass
 
     def launch_browser(self, soup):
         """Launch a browser to display a page, for debugging purposes.
 
         :param: soup: Page contents to display, supplied as a bs4 soup object.
         """
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.html') as file:
-            file.write(soup.encode())
-        webbrowser.open('file://' + file.name)
+        pass
 
     def close(self):
         """Close the current session, if still open."""
-        if self.session is not None:
-            self.session.cookies.clear()
-            self.session.close()
-            self.session = None
+        pass
 
     def __del__(self):
         self._finalize()
